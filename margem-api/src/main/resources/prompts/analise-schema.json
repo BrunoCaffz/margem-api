@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resumo", "notas", "orientacoes"],
+  "properties": {
+    "resumo": {
+      "type": "string",
+      "description": "Duas ou três frases sobre o estado geral do trabalho, em tom de orientador."
+    },
+    "notas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["estrutura", "argumentacao", "clareza", "citacoesReferencias", "formatacaoAbnt"],
+      "properties": {
+        "estrutura": { "type": "number", "description": "0 a 10, uma casa decimal" },
+        "argumentacao": { "type": "number", "description": "0 a 10, uma casa decimal" },
+        "clareza": { "type": "number", "description": "0 a 10, uma casa decimal" },
+        "citacoesReferencias": { "type": "number", "description": "0 a 10, uma casa decimal" },
+        "formatacaoAbnt": { "type": "number", "description": "0 a 10, uma casa decimal" }
+      }
+    },
+    "orientacoes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severidade", "categoria", "titulo", "pagina", "paragrafo", "trecho", "porQueImporta", "comoAjustar", "correcao"],
+        "properties": {
+          "severidade": { "type": "string", "enum": ["CRITICO", "ATENCAO"] },
+          "categoria": {
+            "type": "string",
+            "enum": ["ESTRUTURA", "ARGUMENTACAO", "CLAREZA", "CITACOES_REFERENCIAS", "FORMATACAO_ABNT", "PORTUGUES"]
+          },
+          "titulo": { "type": "string", "description": "Frase curta que nomeia o problema." },
+          "pagina": { "type": ["integer", "null"], "description": "Número da página da marcação [p.N §M], ou null se o problema é do trabalho todo." },
+          "paragrafo": { "type": ["integer", "null"], "description": "Número M da marcação [p.N §M], ou null." },
+          "trecho": { "type": ["string", "null"], "description": "Trecho copiado exatamente do texto, até 200 caracteres, ou null." },
+          "porQueImporta": { "type": "string", "description": "Uma frase. Cite a norma ABNT quando for o caso." },
+          "comoAjustar": { "type": "string", "description": "Instrução concreta, com exemplo quando ajudar." },
+          "correcao": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["original", "sugerido"],
+                "properties": {
+                  "original": { "type": "string", "description": "Trecho exato e curto a substituir." },
+                  "sugerido": { "type": "string", "description": "Como fica corrigido." }
+                }
+              },
+              { "type": "null" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: margem-api
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+  datasource:
+    url: jdbc:h2:file:./data/margem;MODE=PostgreSQL;AUTO_SERVER=TRUE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+margem:
+  # Pasta onde os arquivos enviados e os .docx formatados ficam guardados
+  armazenamento: ${MARGEM_ARMAZENAMENTO:./data/arquivos}
+  # Origens liberadas no CORS (separadas por vírgula)
+  cors-origens: ${MARGEM_CORS:http://localhost:3000,https://margem-five.vercel.app}
+  # Trabalhos maiores que isso são analisados em partes
+  max-caracteres-por-parte: ${MARGEM_MAX_CHARS_PARTE:90000}
+  # Fonte usada na formatação ABNT (Times New Roman ou Arial)
+  fonte-abnt: ${MARGEM_FONTE_ABNT:Times New Roman}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+  modelo: ${OPENAI_MODEL:gpt-4.1}
+  timeout: ${OPENAI_TIMEOUT:PT5M}
+  tentativas: 3
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
