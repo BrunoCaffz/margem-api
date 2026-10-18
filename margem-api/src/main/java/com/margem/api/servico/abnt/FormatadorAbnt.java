@@ -4,6 +4,7 @@ import com.margem.api.config.MargemProperties;
 import com.margem.api.servico.extracao.ExtratorTexto;
 import org.apache.poi.wp.usermodel.HeaderFooterType;
 import org.apache.poi.xwpf.usermodel.*;
+import org.openxmlformats.schemas.officeDocument.x2006.sharedTypes.STVerticalAlignRun;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.stereotype.Component;
 
@@ -106,7 +107,7 @@ public class FormatadorAbnt {
 
         sz.setW(BigInteger.valueOf(A4_LARGURA));
         sz.setH(BigInteger.valueOf(A4_ALTURA));
-        sz.unsetOrient();
+        if (sz.isSetOrient()) sz.unsetOrient();
         m.setTop(BigInteger.valueOf(MARGEM_3CM));
         m.setLeft(BigInteger.valueOf(MARGEM_3CM));
         m.setBottom(BigInteger.valueOf(MARGEM_2CM));
@@ -234,8 +235,7 @@ public class FormatadorAbnt {
             Double atual = r.getFontSizeAsDouble();
             // notas, sobrescritos e similares menores que o corpo continuam como estão
             if (atual == null || Math.abs(atual - tamanho) > 0.1) {
-                if (r.getSubscript() == null || r.getSubscript() == VerticalAlign.BASELINE) {
-                    r.setFontSize(tamanho);
+                if (r.getVerticalAlignment() == null || r.getVerticalAlignment() == STVerticalAlignRun.BASELINE) {                    r.setFontSize(tamanho);
                     tamanhoMudou = true;
                 }
             }

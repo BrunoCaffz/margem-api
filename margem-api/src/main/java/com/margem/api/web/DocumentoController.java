@@ -24,11 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Identificação do aluno: no MVP o front gera um UUID, guarda no localStorage e manda
- * em todo pedido no cabeçalho X-Cliente-Id. Quando houver login, troque por
- * Spring Security + JWT e use o id do usuário no lugar.
- */
 @RestController
 @RequestMapping("/api/documentos")
 public class DocumentoController {
