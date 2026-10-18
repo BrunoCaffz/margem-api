@@ -5,6 +5,7 @@ import com.margem.api.servico.extracao.DocumentoExtraido.Paragrafo;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
@@ -32,6 +33,16 @@ public class ExtratorTexto {
 
     /** Média de caracteres por página A4 em fonte 12 e espaçamento 1,5. */
     static final int CARACTERES_POR_PAGINA = 2600;
+
+    /** Teto de páginas de um PDF: evita que um arquivo pequeno em disco consuma CPU e memória demais. */
+    static final int MAX_PAGINAS_PDF = 800;
+
+    static {
+        // Proteção contra "zip bomb" em .docx: o POI recusa entradas que expandem demais.
+        ZipSecureFile.setMinInflateRatio(0.01);
+        ZipSecureFile.setMaxEntrySize(150L * 1024 * 1024);
+        ZipSecureFile.setMaxTextSize(30L * 1024 * 1024);
+    }
 
     public DocumentoExtraido extrair(Path arquivo, Formato formato) throws IOException {
         try (InputStream in = Files.newInputStream(arquivo)) {
@@ -165,6 +176,7 @@ public class ExtratorTexto {
             List<Paragrafo> resultado = new ArrayList<>();
             int indice = 0;
             int total = pdf.getNumberOfPages();
+            if (total > MAX_PAGINAS_PDF) throw new IOException("O PDF tem páginas demais para analisar.");
             for (int pagina = 1; pagina <= total; pagina++) {
                 stripper.setStartPage(pagina);
                 stripper.setEndPage(pagina);

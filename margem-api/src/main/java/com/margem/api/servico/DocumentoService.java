@@ -50,7 +50,7 @@ public class DocumentoService {
     }
 
     /** Recebe o arquivo, guarda e dispara a análise em segundo plano. */
-    public DocumentoDetalhe criar(String clienteId, MultipartFile arquivo, TipoTrabalho tipo,
+    public DocumentoDetalhe criar(UUID usuarioId, MultipartFile arquivo, TipoTrabalho tipo,
                                   String curso, EscalaNota escala) throws IOException {
         if (arquivo == null || arquivo.isEmpty()) throw new Erros.Invalido("Escolha um arquivo para enviar.");
         if (arquivo.getSize() > MAX_BYTES) throw new Erros.Invalido("O arquivo passa de 20 MB.");
@@ -60,7 +60,7 @@ public class DocumentoService {
 
         String cursoLimpo = curso == null || curso.isBlank() ? null
                 : curso.trim().substring(0, Math.min(150, curso.trim().length()));
-        Documento doc = new Documento(clienteId, nome, formato, tipo, cursoLimpo, escala, null, arquivo.getSize());
+        Documento doc = new Documento(usuarioId, nome, formato, tipo, cursoLimpo, escala, null, arquivo.getSize());
         try (InputStream in = arquivo.getInputStream()) {
             doc.definirArquivo(armazenamento.salvar(doc.getId(), "original." + formato.name().toLowerCase(Locale.ROOT), in));
         }
@@ -70,26 +70,26 @@ public class DocumentoService {
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentoResumo> listar(String clienteId, int limite) {
-        return repo.findByClienteIdOrderByCriadoEmDesc(clienteId, PageRequest.of(0, Math.min(Math.max(limite, 1), 100)))
+    public List<DocumentoResumo> listar(UUID usuarioId, int limite) {
+        return repo.findByUsuarioIdOrderByCriadoEmDesc(usuarioId, PageRequest.of(0, Math.min(Math.max(limite, 1), 100)))
                 .stream().map(Mapeador::resumo).toList();
     }
 
     @Transactional(readOnly = true)
-    public DocumentoDetalhe detalhe(String clienteId, UUID id) {
-        return Mapeador.detalhe(buscarCompleto(clienteId, id));
+    public DocumentoDetalhe detalhe(UUID usuarioId, UUID id) {
+        return Mapeador.detalhe(buscarCompleto(usuarioId, id));
     }
 
     @Transactional
-    public DocumentoDetalhe atualizarEscala(String clienteId, UUID id, EscalaNota escala) {
-        Documento d = buscarCompleto(clienteId, id);
+    public DocumentoDetalhe atualizarEscala(UUID usuarioId, UUID id, EscalaNota escala) {
+        Documento d = buscarCompleto(usuarioId, id);
         d.setEscalaNota(escala);
         return Mapeador.detalhe(d);
     }
 
     @Transactional
-    public OrientacaoDto marcarOrientacao(String clienteId, UUID id, UUID orientacaoId, boolean resolvida) {
-        Documento d = buscarCompleto(clienteId, id);
+    public OrientacaoDto marcarOrientacao(UUID usuarioId, UUID id, UUID orientacaoId, boolean resolvida) {
+        Documento d = buscarCompleto(usuarioId, id);
         Orientacao o = d.getOrientacoes().stream().filter(x -> x.getId().equals(orientacaoId)).findFirst()
                 .orElseThrow(() -> new Erros.NaoEncontrado("Orientação não encontrada."));
         o.setResolvida(resolvida);
@@ -97,8 +97,8 @@ public class DocumentoService {
     }
 
     /** Sem @Transactional de propósito: o status precisa estar gravado antes do worker começar. */
-    public void reanalisar(String clienteId, UUID id) {
-        Documento d = buscar(clienteId, id);
+    public void reanalisar(UUID usuarioId, UUID id) {
+        Documento d = buscar(usuarioId, id);
         if (d.getStatus() == StatusDocumento.ANALISANDO) throw new Erros.Conflito("A análise já está em andamento.");
         d.iniciarAnalise();
         repo.save(d);
@@ -107,8 +107,8 @@ public class DocumentoService {
 
     /** Gera a cópia ABNT (.docx). Leva poucos segundos, então é síncrono. */
     @Transactional
-    public DocumentoDetalhe formatar(String clienteId, UUID id, boolean aplicarCorrecoes) throws IOException {
-        Documento d = buscarCompleto(clienteId, id);
+    public DocumentoDetalhe formatar(UUID usuarioId, UUID id, boolean aplicarCorrecoes) throws IOException {
+        Documento d = buscarCompleto(usuarioId, id);
         if (d.getFormato() != Formato.DOCX) {
             throw new Erros.Conflito("Este trabalho foi enviado em PDF. Para formatar em ABNT, envie o arquivo .docx.");
         }
@@ -153,16 +153,16 @@ public class DocumentoService {
     }
 
     @Transactional(readOnly = true)
-    public ArquivoFormatado arquivoFormatado(String clienteId, UUID id) {
-        Documento d = buscar(clienteId, id);
+    public ArquivoFormatado arquivoFormatado(UUID usuarioId, UUID id) {
+        Documento d = buscar(usuarioId, id);
         if (d.getCaminhoFormatado() == null) throw new Erros.NaoEncontrado("A cópia formatada ainda não foi gerada.");
         String base = d.getNomeArquivo().replaceFirst("(?i)\\.docx$", "");
         return new ArquivoFormatado(armazenamento.caminho(d.getCaminhoFormatado()), base + " (ABNT).docx");
     }
 
     @Transactional
-    public void apagar(String clienteId, UUID id) {
-        Documento d = buscar(clienteId, id);
+    public void apagar(UUID usuarioId, UUID id) {
+        Documento d = buscar(usuarioId, id);
         armazenamento.apagar(d.getCaminhoArquivo());
         armazenamento.apagar(d.getCaminhoFormatado());
         repo.delete(d);
@@ -179,13 +179,13 @@ public class DocumentoService {
 
     // ---------------------------------------------------------------- apoio
 
-    private Documento buscar(String clienteId, UUID id) {
-        return repo.findByIdAndClienteId(id, clienteId)
+    private Documento buscar(UUID usuarioId, UUID id) {
+        return repo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new Erros.NaoEncontrado("Trabalho não encontrado."));
     }
 
-    private Documento buscarCompleto(String clienteId, UUID id) {
-        return repo.findComOrientacoesByIdAndClienteId(id, clienteId)
+    private Documento buscarCompleto(UUID usuarioId, UUID id) {
+        return repo.findComOrientacoesByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new Erros.NaoEncontrado("Trabalho não encontrado."));
     }
 

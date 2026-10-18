@@ -12,12 +12,12 @@ import java.util.UUID;
 
 public interface DocumentoRepository extends JpaRepository<Documento, UUID> {
 
-    List<Documento> findByClienteIdOrderByCriadoEmDesc(String clienteId, Pageable pageable);
+    List<Documento> findByUsuarioIdOrderByCriadoEmDesc(UUID usuarioId, Pageable pageable);
 
-    Optional<Documento> findByIdAndClienteId(UUID id, String clienteId);
+    Optional<Documento> findByIdAndUsuarioId(UUID id, UUID usuarioId);
 
     @EntityGraph(attributePaths = "orientacoes")
-    Optional<Documento> findComOrientacoesByIdAndClienteId(UUID id, String clienteId);
+    Optional<Documento> findComOrientacoesByIdAndUsuarioId(UUID id, UUID usuarioId);
 
     List<Documento> findByStatusIn(List<StatusDocumento> status);
 }

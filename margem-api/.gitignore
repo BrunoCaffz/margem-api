@@ -4,3 +4,11 @@ data/
 *.iml
 .vscode/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.log
+dependency-check-report.*

@@ -8,5 +8,16 @@ spring:
 margem:
   armazenamento: target/test-arquivos
 
+  seguranca:
+    # Segredo só para testes automatizados; nunca use em outro lugar
+    jwt-secret: segredo-somente-para-testes-automatizados-0123456789
+    cookie-secure: false
+    cookie-same-site: Lax
+    limites:
+      auth-ip: { capacidade: 1000, janela: PT15M }
+      login-email: { capacidade: 5, janela: PT15M }
+      analise-usuario: { capacidade: 1000, janela: PT1H }
+      api-usuario: { capacidade: 1000, janela: PT1M }
+
 openai:
   api-key: teste

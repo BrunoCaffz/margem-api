@@ -11,15 +11,15 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "documento", indexes = @Index(name = "idx_documento_cliente", columnList = "cliente_id,criado_em"))
+@Table(name = "documento", indexes = @Index(name = "idx_documento_usuario", columnList = "usuario_id,criado_em"))
 public class Documento {
 
     @Id
     private UUID id = UUID.randomUUID();
 
-    /** Dono do documento. No MVP vem do cabeçalho X-Cliente-Id; trocar pelo id do usuário quando houver login. */
-    @Column(nullable = false, length = 100)
-    private String clienteId;
+    /** Dono do documento: o id do usuário autenticado (claim "sub" do token), nunca um valor enviado pelo cliente. */
+    @Column(nullable = false)
+    private UUID usuarioId;
 
     @Column(nullable = false, length = 255)
     private String nomeArquivo;
@@ -73,9 +73,9 @@ public class Documento {
     protected Documento() {
     }
 
-    public Documento(String clienteId, String nomeArquivo, Formato formato, TipoTrabalho tipoTrabalho,
+    public Documento(UUID usuarioId, String nomeArquivo, Formato formato, TipoTrabalho tipoTrabalho,
                      String curso, EscalaNota escalaNota, String caminhoArquivo, long tamanhoBytes) {
-        this.clienteId = clienteId;
+        this.usuarioId = usuarioId;
         this.nomeArquivo = nomeArquivo;
         this.formato = formato;
         this.tipoTrabalho = tipoTrabalho;
@@ -128,7 +128,7 @@ public class Documento {
     public void setEscalaNota(EscalaNota escalaNota) { this.escalaNota = escalaNota; }
 
     public UUID getId() { return id; }
-    public String getClienteId() { return clienteId; }
+    public UUID getUsuarioId() { return usuarioId; }
     public String getNomeArquivo() { return nomeArquivo; }
     public Formato getFormato() { return formato; }
     public TipoTrabalho getTipoTrabalho() { return tipoTrabalho; }

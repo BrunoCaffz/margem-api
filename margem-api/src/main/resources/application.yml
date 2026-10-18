@@ -9,7 +9,8 @@ spring:
       max-file-size: 20MB
       max-request-size: 21MB
   datasource:
-    url: jdbc:h2:file:./data/margem;MODE=PostgreSQL;AUTO_SERVER=TRUE
+    # H2 em arquivo é só para desenvolvimento local (sem AUTO_SERVER: não abre porta de rede)
+    url: jdbc:h2:file:./data/margem;MODE=PostgreSQL
     username: sa
     password:
   jpa:
@@ -22,12 +23,30 @@ spring:
 
 server:
   port: ${PORT:8080}
+  # Atrás de proxy/load balancer use "native" para o IP real do cliente (usado no limite de requisições)
+  forward-headers-strategy: ${FORWARD_HEADERS:none}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+
+# Swagger: ligado em desenvolvimento, desligado no perfil prod (ver abaixo)
+springdoc:
+  api-docs:
+    enabled: ${MARGEM_SWAGGER:true}
+  swagger-ui:
+    enabled: ${MARGEM_SWAGGER:true}
+    persist-authorization: false
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+  endpoint:
+    health:
+      show-details: never
 
 margem:
   # Pasta onde os arquivos enviados e os .docx formatados ficam guardados
@@ -38,6 +57,22 @@ margem:
   max-caracteres-por-parte: ${MARGEM_MAX_CHARS_PARTE:90000}
   # Fonte usada na formatação ABNT (Times New Roman ou Arial)
   fonte-abnt: ${MARGEM_FONTE_ABNT:Times New Roman}
+  seguranca:
+    # Obrigatório, sem valor padrão: openssl rand -base64 48
+    jwt-secret: ${JWT_SECRET}
+    emissor: ${JWT_EMISSOR:margem-api}
+    audiencia: ${JWT_AUDIENCIA:margem-front}
+    access-ttl: ${JWT_ACCESS_TTL:PT10M}
+    refresh-ttl: ${JWT_REFRESH_TTL:P14D}
+    # Cookie de renovação. Front e API em sites diferentes (ex.: vercel.app e outro domínio) exigem None + Secure.
+    # Se compartilharem o mesmo site, use Lax.
+    cookie-secure: ${COOKIE_SECURE:true}
+    cookie-same-site: ${COOKIE_SAMESITE:None}
+    limites:
+      auth-ip: { capacidade: 30, janela: PT15M }
+      login-email: { capacidade: 10, janela: PT15M }
+      analise-usuario: { capacidade: 20, janela: PT1H }
+      api-usuario: { capacidade: 300, janela: PT1M }
 
 openai:
   api-key: ${OPENAI_API_KEY:}
@@ -55,3 +90,14 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
     password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      # O usuário do banco em produção não deve ter permissão de DDL. Crie o schema uma vez com um
+      # usuário administrativo (DDL_AUTO=update) e volte para validate. Ver README.
+      ddl-auto: ${DDL_AUTO:validate}
+
+springdoc:
+  api-docs:
+    enabled: ${MARGEM_SWAGGER:false}
+  swagger-ui:
+    enabled: ${MARGEM_SWAGGER:false}

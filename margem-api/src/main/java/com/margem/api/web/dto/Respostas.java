@@ -113,4 +113,11 @@ public final class Respostas {
     /** paragrafoIndice -1 = alteração no documento todo (papel, margens). */
     public record Alteracao(int paragrafoIndice, Integer pagina, String trecho, String descricao) {
     }
+
+    public record UsuarioDto(java.util.UUID id, String email, String nome) {
+    }
+
+    /** O refresh token não aparece aqui: vai num cookie HttpOnly. */
+    public record Sessao(String accessToken, String tokenType, long expiresIn, UsuarioDto usuario) {
+    }
 }

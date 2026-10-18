@@ -28,14 +28,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class FluxoDocumentoTest {
 
-    static final String CLIENTE = "aluno-teste-0001";
-
     @Autowired
     MockMvc mvc;
     @Autowired
     ObjectMapper json;
     @MockitoBean
     OpenAiClient openAi;
+
+    private String auth;
+
+    @org.junit.jupiter.api.BeforeEach
+    void entrar() throws Exception {
+        auth = Sessoes.cadastrar(mvc, json).bearer();
+    }
 
     @Test
     void fluxoCompletoDocx() throws Exception {
@@ -58,7 +63,7 @@ class FluxoDocumentoTest {
 
         String criado = mvc.perform(multipart("/api/documentos").file(arquivo)
                         .param("tipoTrabalho", "TCC").param("escalaNota", "DEZ")
-                        .header("X-Cliente-Id", CLIENTE))
+                        .header("Authorization", auth))
                 .andExpect(status().isAccepted())
                 .andReturn().getResponse().getContentAsString();
         String id = json.readTree(criado).get("id").asText();
@@ -74,54 +79,54 @@ class FluxoDocumentoTest {
         assertThat(rel.get("formatacao").get("disponivel").asBoolean()).isTrue();
 
         // muda escala sem reanalisar
-        mvc.perform(patch("/api/documentos/" + id).header("X-Cliente-Id", CLIENTE)
+        mvc.perform(patch("/api/documentos/" + id).header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"escalaNota\":\"CEM\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nota.exibicao").value("58"));
 
         // marcar como resolvido
         String orientacaoId = rel.get("orientacoes").get(0).get("id").asText();
-        mvc.perform(patch("/api/documentos/" + id + "/orientacoes/" + orientacaoId).header("X-Cliente-Id", CLIENTE)
+        mvc.perform(patch("/api/documentos/" + id + "/orientacoes/" + orientacaoId).header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"resolvida\":true}"))
                 .andExpect(jsonPath("$.resolvida").value(true));
 
         // formatar ABNT e baixar
-        mvc.perform(post("/api/documentos/" + id + "/formatacao").header("X-Cliente-Id", CLIENTE))
+        mvc.perform(post("/api/documentos/" + id + "/formatacao").header("Authorization", auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.etapa").value(4))
                 .andExpect(jsonPath("$.formatacao.correcoesAplicadas").value(1))
                 .andExpect(jsonPath("$.formatacao.alteracoes").isNotEmpty());
 
-        byte[] baixado = mvc.perform(get("/api/documentos/" + id + "/formatacao/arquivo").header("X-Cliente-Id", CLIENTE))
+        byte[] baixado = mvc.perform(get("/api/documentos/" + id + "/formatacao/arquivo").header("Authorization", auth))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("ABNT")))
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(baixado).startsWith((byte) 'P', (byte) 'K');
 
         // outro aluno não enxerga
-        mvc.perform(get("/api/documentos/" + id).header("X-Cliente-Id", "outro-aluno-0002"))
+        mvc.perform(get("/api/documentos/" + id).header("Authorization", Sessoes.cadastrar(mvc, json).bearer()))
                 .andExpect(status().isNotFound());
 
         // lista e apaga
-        mvc.perform(get("/api/documentos").header("X-Cliente-Id", CLIENTE))
+        mvc.perform(get("/api/documentos").header("Authorization", auth))
                 .andExpect(jsonPath("$[0].nota.exibicao").value("58"));
-        mvc.perform(delete("/api/documentos/" + id).header("X-Cliente-Id", CLIENTE))
+        mvc.perform(delete("/api/documentos/" + id).header("Authorization", auth))
                 .andExpect(status().isNoContent());
-        mvc.perform(get("/api/documentos/" + id).header("X-Cliente-Id", CLIENTE))
+        mvc.perform(get("/api/documentos/" + id).header("Authorization", auth))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void rejeitaArquivoQueNaoEDocxNemPdf() throws Exception {
         var falso = new MockMultipartFile("arquivo", "virus.docx", "application/octet-stream", "nao sou zip".getBytes());
-        mvc.perform(multipart("/api/documentos").file(falso).header("X-Cliente-Id", CLIENTE))
+        mvc.perform(multipart("/api/documentos").file(falso).header("Authorization", auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Envie um arquivo .docx ou .pdf."));
     }
 
     private JsonNode aguardarConclusao(String id) throws Exception {
         for (int i = 0; i < 50; i++) {
-            String corpo = mvc.perform(get("/api/documentos/" + id).header("X-Cliente-Id", CLIENTE))
+            String corpo = mvc.perform(get("/api/documentos/" + id).header("Authorization", auth))
                     .andReturn().getResponse().getContentAsString();
             JsonNode n = json.readTree(corpo);
             String status = n.get("status").asText();

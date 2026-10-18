@@ -3,7 +3,16 @@ package com.margem.api.web;
 import com.margem.api.servico.Erros;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import jakarta.validation.ConstraintViolationException;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -48,8 +57,32 @@ public class TratadorErros {
     }
 
     @ExceptionHandler(MissingRequestHeaderException.class)
-    ProblemDetail semCliente(MissingRequestHeaderException e) {
+    ProblemDetail semCabecalho(MissingRequestHeaderException e) {
         return problema(HttpStatus.BAD_REQUEST, "Cabeçalho " + e.getHeaderName() + " ausente.");
+    }
+
+    @ExceptionHandler(Erros.NaoAutenticado.class)
+    ResponseEntity<ProblemDetail> naoAutenticado(Erros.NaoAutenticado e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(problema(HttpStatus.UNAUTHORIZED, e.getMessage()));
+    }
+
+    @ExceptionHandler(Erros.Proibido.class)
+    ProblemDetail proibido(Erros.Proibido e) {
+        return problema(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(Erros.LimiteExcedido.class)
+    ResponseEntity<ProblemDetail> limite(Erros.LimiteExcedido e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(e.segundos()))
+                .body(problema(HttpStatus.TOO_MANY_REQUESTS, e.getMessage()));
+    }
+
+    @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
+    ProblemDetail parametroInvalido(Exception e) {
+        return problema(HttpStatus.BAD_REQUEST, "Parâmetro inválido na requisição.");
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -59,7 +92,10 @@ public class TratadorErros {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail validacao(MethodArgumentNotValidException e) {
-        return problema(HttpStatus.BAD_REQUEST, "Dados inválidos na requisição.");
+        // as mensagens vêm das anotações de validação escritas por nós, nunca do valor enviado
+        String detalhe = e.getBindingResult().getFieldErrors().stream()
+                .map(f -> f.getDefaultMessage()).filter(Objects::nonNull).distinct().collect(Collectors.joining(" "));
+        return problema(HttpStatus.BAD_REQUEST, detalhe.isBlank() ? "Dados inválidos na requisição." : detalhe);
     }
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
@@ -71,6 +107,20 @@ public class TratadorErros {
     ProblemDetail io(java.io.IOException e) {
         log.error("Erro de leitura/gravação", e);
         return problema(HttpStatus.UNPROCESSABLE_ENTITY, "Não conseguimos ler o arquivo. Confira se ele abre normalmente no Word.");
+    }
+
+    /** Última rede: nada de stack trace ou mensagem interna na resposta. Erros do próprio Spring MVC mantêm seu status. */
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ProblemDetail> inesperado(Exception e) throws Exception {
+        if (e instanceof AccessDeniedException || e instanceof AuthenticationException) throw e; // cabe ao Spring Security
+        if (e instanceof ErrorResponse er) {
+            ProblemDetail corpo = er.getBody();
+            if (er.getStatusCode().is5xxServerError()) corpo.setDetail("Erro inesperado. Tente de novo em instantes.");
+            return ResponseEntity.status(er.getStatusCode()).headers(er.getHeaders()).body(corpo);
+        }
+        log.error("Erro inesperado", e);
+        return ResponseEntity.internalServerError()
+                .body(problema(HttpStatus.INTERNAL_SERVER_ERROR, "Erro inesperado. Tente de novo em instantes."));
     }
 
     private static ProblemDetail problema(HttpStatus status, String detalhe) {
